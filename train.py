@@ -55,11 +55,14 @@ for step in range (number_of_steps):
    with torch.no_grad():
      _, val_loss = model(val_inputs, val_targets)
    print(f"step {step}, loss: {loss.item():.4f}, val loss: {val_loss.item():.4f}")
+   if val_loss.item() < best_val_loss:
+    best_val_loss = val_loss.item()
+    torch.save(model.state_dict(), "best_model.pt")
    if step % 1000 == 0:
     torch.save(model.state_dict(), f"checkpoint_step{step}.pt")
 
 torch.save(model.state_dict(),"model.pt")
-
+model.load_state_dict(torch.load("best_model.pt"))
 model.eval()
 
 def generate(prompt, length=200):
@@ -73,6 +76,15 @@ def generate(prompt, length=200):
     tokens_so_far.append(next_token)
   return tokenizer.decode(tokens_so_far)
 
-print(generate("The sun"))  
+model.eval()
+
+print("FINAL MODEL:")
+print(generate("The sun"))
+
+model.load_state_dict(torch.load("best_model.pt"))
+model.eval()
+
+print("BEST MODEL:")
+print(generate("The sun"))
 
 
