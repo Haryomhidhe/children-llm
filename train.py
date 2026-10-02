@@ -71,6 +71,8 @@ def generate(prompt, length=200):
     input_tensor = torch.tensor([tokens_so_far[-context_length:]])
     logits, _ = model(input_tensor)
     next_token_logits = logits[0,-1]
+    temperature = 0.8
+    next_token_logits = next_token_logits / temperature
     probabilities = torch.softmax(next_token_logits, dim=0)
     next_token = torch.multinomial(probabilities, num_samples=1).item()
     tokens_so_far.append(next_token)
