@@ -39,7 +39,7 @@ model = SmallGPT(config)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
 best_val_loss = float('inf')
-number_of_steps =2000
+number_of_steps =5000
 
 for step in range (number_of_steps):
   inputs, targets = get_batch(train_tokens)
