@@ -1,5 +1,6 @@
 """A small decoder-only language model to use as a starting point."""
 
+# Import the helper for dataclass-based configuration and PyTorch components.
 from dataclasses import dataclass
 
 import torch
@@ -7,6 +8,7 @@ from torch import nn
 from torch.nn import functional as F
 
 
+# ModelConfig stores the basic architecture settings used across the model.
 @dataclass
 class ModelConfig:
 	vocab_size: int = 256
@@ -18,6 +20,7 @@ class ModelConfig:
 	dropout: float = 0.0
 
 
+# CharacterTokenizer encodes UTF-8 bytes directly into a simple 256-token vocabulary.
 class CharacterTokenizer:
 	"""Maps UTF-8 bytes to token IDs, keeping the first version simple."""
 
@@ -30,6 +33,7 @@ class CharacterTokenizer:
 		return bytes(token_ids).decode("utf-8", errors="replace")
 
 
+# CausalSelfAttention applies a masked transformer self-attention block.
 class CausalSelfAttention(nn.Module):
 	def __init__(self, config: ModelConfig) -> None:
 		super().__init__()
@@ -39,6 +43,7 @@ class CausalSelfAttention(nn.Module):
 			dropout=config.dropout,
 			batch_first=True,
 		)
+		# The triangular mask prevents the model from seeing future tokens.
 		self.register_buffer(
 			"causal_mask",
 			torch.triu(
@@ -59,6 +64,7 @@ class CausalSelfAttention(nn.Module):
 		return self.dropout(attention_output)
 
 
+# A TransformerBlock combines self-attention and a feed-forward neural network.
 class TransformerBlock(nn.Module):
 	def __init__(self, config: ModelConfig) -> None:
 		super().__init__()
@@ -77,6 +83,7 @@ class TransformerBlock(nn.Module):
 		return hidden_states + self.feed_forward(self.layer_norm_2(hidden_states))
 
 
+# SmallGPT is the full causal decoder-only model used for next-token prediction.
 class SmallGPT(nn.Module):
 	def __init__(self, config: ModelConfig) -> None:
 		super().__init__()
@@ -90,6 +97,7 @@ class SmallGPT(nn.Module):
 		)
 		self.final_layer_norm = nn.LayerNorm(config.embedding_size)
 		self.output_head = nn.Linear(config.embedding_size, config.vocab_size, bias=False)
+		# Tie the output projection to the token embedding weights to reduce parameters.
 		self.output_head.weight = self.token_embedding.weight
 		self.apply(self._initialize_weights)
 
@@ -102,14 +110,15 @@ class SmallGPT(nn.Module):
 			nn.init.ones_(module.weight)
 
 	def forward(
-		self,
-		token_ids: torch.Tensor,
-		targets: torch.Tensor | None = None,
-	) -> tuple[torch.Tensor, torch.Tensor | None]:
+			self,
+			token_ids: torch.Tensor,
+			targets: torch.Tensor | None = None,
+		) -> tuple[torch.Tensor, torch.Tensor | None]:
 		_, sequence_length = token_ids.shape
 		if sequence_length > self.config.context_length:
 			raise ValueError("Input is longer than the model context length.")
 
+		# Add token and positional embeddings before feeding the sequence through the blocks.
 		positions = torch.arange(sequence_length, device=token_ids.device)
 		hidden_states = self.token_embedding(token_ids) + self.position_embedding(positions)
 		for block in self.blocks:
@@ -118,6 +127,7 @@ class SmallGPT(nn.Module):
 
 		loss = None
 		if targets is not None:
+			# Cross-entropy compares the predicted logits against the next token targets.
 			loss = F.cross_entropy(logits.reshape(-1, logits.size(-1)), targets.reshape(-1))
 		return logits, loss
 
@@ -132,12 +142,13 @@ class SmallGPT(nn.Module):
 		return token_ids
 
 
+# Count all trainable parameters so the model size can be inspected easily.
 def count_parameters(model: nn.Module) -> int:
 	return sum(parameter.numel() for parameter in model.parameters() if parameter.requires_grad)
 
 
+# A simple smoke test to confirm the model runs and produces logits for a prompt.
 def main() -> None:
-	torch.manual_seed(42)
 	tokenizer = CharacterTokenizer()
 	model = SmallGPT(ModelConfig())
 
