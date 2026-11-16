@@ -47,10 +47,14 @@ def get_batch(data):
       targets.append(chunk[1:])
     return torch.tensor(inputs), torch.tensor(targets)
 
-def estimate_validataion_loss():
+def estimate_validation_loss():
   losses = []
   for _ in range(10):
     inputs, targets = get_batch(val_tokens)
+    with torch.no_grad():
+      _, loss = model(inputs, targets)
+
+    losses.append(loss.item())
 # Instantiate the model configuration and the language model itself.
 config = ModelConfig()
 model = SmallGPT(config)
